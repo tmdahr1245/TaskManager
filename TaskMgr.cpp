@@ -18,7 +18,7 @@ const DWORD TabNum = 6;
 
 wchar_t windows_title[256][256];
 wchar_t last_windows_title[256][256];
-int title_cnt=1,last_title_cnt=1;
+int title_cnt=0,last_title_cnt=0;
 
 void make_windows_title(HWND hStatic){
 	LVCOLUMN COL;
@@ -42,15 +42,15 @@ void make_windows_title(HWND hStatic){
 	//https://m.blog.naver.com/PostView.nhn?blogId=xenardy&logNo=60102016237&proxyReferer=https%3A%2F%2Fwww.google.co.kr%2F
 	LI.mask = LVIF_TEXT;
 	LI.iSubItem = 0;    //열
-	for(DWORD i = 1; i < title_cnt ; i++){	
-		LI.iItem = i+1;
+	for(DWORD i = 0; i < title_cnt ; i++){	
+		LI.iItem = i;//+1;
 		LI.pszText = windows_title[i];
 		ListView_InsertItem(hList, &LI);					
 		ListView_SetItemText(hList, i, 1,L""); 
 	}
 
 }
-int CALLBACK foo( HWND hwnd, LPARAM param ){
+int CALLBACK find_window( HWND hwnd, LPARAM param ){
      if ( IsWindowVisible(hwnd ) == FALSE ) return 1;
      if ( GetWindowTextLength( hwnd ) == 0 ) return 1;
      if ( GetParent( hwnd ) != 0 ) return 1;
@@ -59,7 +59,8 @@ int CALLBACK foo( HWND hwnd, LPARAM param ){
     TCHAR title[256];
     GetClassName( hwnd, name, 256 );
     GetWindowText( hwnd, title, 256 );
-	wcscpy(windows_title[title_cnt++],title);
+	if(wcscmp(title,L"Program Manager")!=0)
+		wcscpy(windows_title[title_cnt++],title);
      return 1;
 }
 DWORD WINAPI thread_proc(LPVOID lpParam){
@@ -67,7 +68,7 @@ DWORD WINAPI thread_proc(LPVOID lpParam){
 		HANDLE hMutex = CreateMutex(NULL, FALSE, L"SAMPLE");
 		bool change_flag=false;
 		WaitForSingleObject(hMutex, INFINITE);
-		EnumWindows( foo, 0 ); 
+		EnumWindows( find_window, 0 ); 
 		ReleaseMutex(hMutex);
 		
 		Sleep(100);
@@ -92,7 +93,7 @@ DWORD WINAPI thread_proc(LPVOID lpParam){
 			SendMessage(GetParent(hTab), WM_NOTIFY, nmh.idFrom, (LPARAM)&nmh);
 		}
 		last_title_cnt=title_cnt;
-		title_cnt=1;
+		title_cnt=0;
 		memset(windows_title,NULL,256);
 	}
 }
@@ -140,6 +141,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			TabCtrl_InsertItem(hTab,i,&tie);
 		}
 		return 0;
+		//https://stackoverflow.com/questions/21770905/right-click-on-listview-winapi-c
 	case WM_NOTIFY:
 		switch (((LPNMHDR)lParam)->code) {
 		case TCN_SELCHANGE:
@@ -150,8 +152,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT iMessage, WPARAM wParam, LPARAM lParam)
 			switch (CurTab){
 				case 0:
 					make_windows_title(hStatic);
+					ShowWindow(hStatic,SW_SHOW);
 					return 0;
 				case 1:
+					ShowWindow(hStatic, SW_HIDE);
 					//CloseWindow(hStatic);
 					return 0;
 				case 2:
